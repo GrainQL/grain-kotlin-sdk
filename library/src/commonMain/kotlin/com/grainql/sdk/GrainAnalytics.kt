@@ -11,6 +11,22 @@ import co.touchlab.kermit.Logger
 import kotlinx.coroutines.*
 import kotlinx.serialization.json.*
 
+/**
+ * Main entry point for the Grain analytics SDK.
+ *
+ * Call [initialize] once during app startup, then use [track] to record events.
+ * The SDK handles batching, retry, offline persistence, and delivery automatically.
+ *
+ * ```kotlin
+ * GrainAnalytics.initialize(
+ *     config = GrainConfig(tenantAlias = "my-app"),
+ *     kvStore = AndroidKeyValueStore(context),
+ *     fileStore = AndroidFileStore(context),
+ * )
+ *
+ * GrainAnalytics.track("button_clicked", mapOf("screen" to "home"))
+ * ```
+ */
 object GrainAnalytics {
 
     private val log = Logger.withTag("Grain")
@@ -24,6 +40,17 @@ object GrainAnalytics {
 
     const val SDK_VERSION = "1.0.0"
 
+    /**
+     * Initialize the Grain SDK. Must be called before any other method.
+     *
+     * Restores any persisted events from a previous session and starts the periodic flush timer.
+     * Calling this again without [shutdown] first is a no-op.
+     *
+     * @param config SDK configuration (tenant alias, flush settings, etc.)
+     * @param kvStore Platform key-value store for persisting identity (device ID).
+     * @param fileStore Optional platform file store for offline event persistence.
+     *   If `null` or [GrainConfig.enablePersistence] is `false`, events are only held in memory.
+     */
     fun initialize(
         config: GrainConfig,
         kvStore: KeyValueStore,
@@ -65,41 +92,102 @@ object GrainAnalytics {
         }
     }
 
+    /**
+     * Track an event attributed to the current user (identified or device ID).
+     *
+     * Properties are preserved with their original types — numbers, booleans, strings,
+     * maps, and lists are all serialized faithfully. This call never blocks; the event
+     * is submitted synchronously to an internal channel and flushed asynchronously.
+     *
+     * @param eventName Name of the event (e.g. `"level_complete"`, `"purchase"`).
+     * @param properties Arbitrary key-value pairs attached to the event.
+     */
     fun track(eventName: String, properties: Map<String, Any> = emptyMap()) {
         val mgr = requireInitialized() ?: return
         trackInternal(eventName, mgr.getUserId(), properties)
     }
 
+    /**
+     * Track an event attributed to a specific user ID.
+     *
+     * Use this overload when you need to attribute an event to a user other than
+     * the currently identified/device user.
+     *
+     * @param eventName Name of the event.
+     * @param userId The user ID to attribute this event to.
+     * @param properties Arbitrary key-value pairs attached to the event.
+     */
     fun track(eventName: String, userId: String, properties: Map<String, Any> = emptyMap()) {
         requireInitialized() ?: return
         trackInternal(eventName, userId, properties)
     }
 
+    /**
+     * Identify the current user. After this call, all subsequent [track] calls
+     * (without an explicit `userId`) will be attributed to this user.
+     *
+     * The device ID continues to be sent as a property on every event,
+     * allowing the backend to stitch anonymous and identified sessions.
+     *
+     * @param userId The authenticated user identifier.
+     */
     fun identify(userId: String) {
         val mgr = requireInitialized() ?: return
         mgr.identify(userId)
         if (config?.debug == true) log.d { "Identified user: $userId" }
     }
 
+    /**
+     * Clear the identified user. The SDK reverts to using the device ID as the user identity.
+     *
+     * Unlike a traditional "anonymous ID reset", the device ID is stable —
+     * the same value is used before and after this call, preserving continuity.
+     */
     fun resetIdentity() {
         val mgr = requireInitialized() ?: return
         mgr.reset()
         if (config?.debug == true) log.d { "Identity reset. userId reverted to device ID: ${mgr.deviceId}" }
     }
 
+    /**
+     * Returns the stable device ID for this install, or `null` if the SDK is not initialized.
+     *
+     * The device ID is a UUID generated on first launch and persisted permanently.
+     * It is never rotated by [resetIdentity] and is included as `device_id` in every event.
+     */
     fun getDeviceId(): String? {
         return identityManager?.deviceId
     }
 
+    /**
+     * Returns the current session ID, or `null` if the SDK is not initialized.
+     *
+     * A new session ID (UUID) is generated each time the SDK is initialized — typically
+     * once per app cold start. It is included as `session_id` in every event.
+     */
     fun getSessionId(): String? {
         return identityManager?.sessionId
     }
 
+    /**
+     * Set properties on the current user's profile.
+     *
+     * These are stored server-side and are separate from event properties.
+     * Useful for attributes like plan tier, signup source, or preferences.
+     *
+     * @param properties Key-value pairs to set on the user profile.
+     */
     fun setUserProperties(properties: Map<String, String>) {
         val mgr = requireInitialized() ?: return
         setUserProperties(mgr.getUserId(), properties)
     }
 
+    /**
+     * Set properties on a specific user's profile.
+     *
+     * @param userId The user to update.
+     * @param properties Key-value pairs to set on the user profile.
+     */
     fun setUserProperties(userId: String, properties: Map<String, String>) {
         requireInitialized() ?: return
         scope?.launch {
@@ -107,14 +195,23 @@ object GrainAnalytics {
         }
     }
 
+    /**
+     * Manually flush all pending events to the Grain API.
+     *
+     * Drains any events buffered by [track] and sends them in batches.
+     * This is called automatically by the periodic timer, [onBackground], and [shutdown],
+     * but you can call it explicitly when you need delivery guarantees (e.g. before a paywall).
+     */
     suspend fun flush() {
         dispatcher?.flush()
     }
 
+    /** Resume the periodic flush timer. Call when the app returns to the foreground. */
     fun onForeground() {
         dispatcher?.resume()
     }
 
+    /** Flush pending events and pause the periodic timer. Call when the app enters the background. */
     fun onBackground() {
         val d = dispatcher ?: return
         scope?.launch {
@@ -123,14 +220,22 @@ object GrainAnalytics {
         }
     }
 
+    /** Notify the SDK that network connectivity has been restored. Triggers an immediate flush. */
     fun onNetworkConnected() {
         dispatcher?.setNetworkAvailable(true)
     }
 
+    /** Notify the SDK that network connectivity has been lost. Pauses delivery until reconnected. */
     fun onNetworkDisconnected() {
         dispatcher?.setNetworkAvailable(false)
     }
 
+    /**
+     * Shut down the SDK gracefully. Flushes all remaining events and releases resources.
+     *
+     * After this call, [isInitialized] returns `false` and all tracking calls are no-ops.
+     * You can call [initialize] again to restart the SDK.
+     */
     suspend fun shutdown() {
         if (!initialized) return
 
@@ -152,6 +257,7 @@ object GrainAnalytics {
         log.d { "Grain SDK shut down" }
     }
 
+    /** Whether the SDK has been initialized and is ready to accept events. */
     val isInitialized: Boolean get() = initialized
 
     private fun trackInternal(eventName: String, userId: String, properties: Map<String, Any>) {
