@@ -1,5 +1,6 @@
+<br>
 <p align="center">
-  <img src="https://cdn.xreos.co/webasset/images/grain_logomark_dark.svg" alt="Grain" width="80" />
+  <img src="https://cdn.xreos.co/webasset/images/grain_logomark_dark.svg" alt="Grain" width="150"/>
 </p>
 
 <h1 align="center">Grain Kotlin SDK</h1>
