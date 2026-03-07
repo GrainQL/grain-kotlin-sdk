@@ -160,7 +160,7 @@ Events flow through a simple pipeline:
 4. Failed batches are retried with exponential backoff. Events exceeding `maxRetries` are dropped.
 5. When persistence is enabled, events are written to a local JSONL file and removed after successful delivery.
 
-The SDK automatically attaches `session_id`, `device_id`, `client_version`, `platform`, and `timestamp` to every event. These match the conventions used by the [Grain web SDK](https://github.com/grainql/grain-tag) so all events participate in the same analytics pipeline.
+The SDK automatically attaches `session_id`, `device_id`, `client_version`, `platform`, and `timestamp` to every event. These match the conventions used by the Grain web SDK so all events participate in the same analytics pipeline.
 
 ## Building from Source
 
