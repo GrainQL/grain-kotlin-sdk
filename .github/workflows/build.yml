@@ -1,0 +1,49 @@
+name: Build & Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build all targets
+        run: ./gradlew :library:compileKotlinJvm :library:compileAndroidMain :library:compileKotlinIosArm64 :library:compileKotlinIosX64 :library:compileKotlinIosSimulatorArm64
+
+      - name: Run JVM unit tests
+        run: ./gradlew :library:jvmTest -x com.grainql.sdk.integration.IntegrationTest
+
+      - name: Run iOS simulator tests
+        run: ./gradlew :library:iosSimulatorArm64Test
+
+  integration:
+    runs-on: macos-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Run integration tests
+        env:
+          GRAIN_TENANT_ALIAS: ${{ secrets.GRAIN_TENANT_ALIAS }}
+          GRAIN_SECRET: ${{ secrets.GRAIN_SECRET }}
+        run: ./gradlew :library:jvmTest --tests "com.grainql.sdk.integration.*"
