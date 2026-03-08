@@ -23,7 +23,7 @@ jobs:
         run: ./gradlew :library:compileKotlinJvm :library:compileAndroidMain :library:compileKotlinIosArm64 :library:compileKotlinIosX64 :library:compileKotlinIosSimulatorArm64
 
       - name: Run JVM unit tests
-        run: ./gradlew :library:jvmTest -x com.grainql.sdk.integration.IntegrationTest
+        run: ./gradlew :library:jvmTest --tests "com.grainql.sdk.GrainConfigTest" --tests "com.grainql.sdk.core.*" --tests "com.grainql.sdk.identity.*" --tests "com.grainql.sdk.model.*"
 
       - name: Run iOS simulator tests
         run: ./gradlew :library:iosSimulatorArm64Test
