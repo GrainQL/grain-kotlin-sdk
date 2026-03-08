@@ -11,6 +11,7 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/GrainQL/grain-kotlin-sdk/actions/workflows/build.yml"><img src="https://github.com/GrainQL/grain-kotlin-sdk/actions/workflows/build.yml/badge.svg" alt="Build & Test" /></a>
   <a href="https://central.sonatype.com/artifact/com.grainql/grain-sdk"><img src="https://img.shields.io/maven-central/v/com.grainql/grain-sdk" alt="Maven Central" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License" /></a>
 </p>
