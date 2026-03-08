@@ -18,8 +18,8 @@ import kotlin.test.*
  */
 class IntegrationTest {
 
-    private val tenantAlias = System.getenv("GRAIN_TENANT_ALIAS") ?: "grain-kotlin-sdk-test"
-    private val secret = System.getenv("GRAIN_SECRET")
+    private val tenantAlias = System.getenv("GRAIN_TENANT_ALIAS").takeUnless { it.isNullOrBlank() } ?: "grain-kotlin-sdk-test"
+    private val secret = System.getenv("GRAIN_SECRET").takeUnless { it.isNullOrBlank() }
 
     @Test
     fun transportSendSingleBatch() = runTest {
