@@ -6,7 +6,7 @@ package com.grainql.sdk
  * @property tenantAlias Tenant alias that identifies your project on Grain (e.g. `"my-app"`).
  *   This is the route key used in all API calls.
  * @property apiUrl Base URL for the Grain client API. Override for self-hosted deployments.
- * @property secret Optional tenant secret for authenticated ingestion (`Chase` scheme).
+ * @property secret Optional tenant secret for authenticated ingestion (sent as `Authorization: Bearer <secret>`).
  *   Leave `null` for tenants with auth strategy set to `NONE`.
  * @property debug When `true`, the SDK logs tracking calls, flush activity, and identity changes.
  * @property flushIntervalMs How often (in milliseconds) the SDK automatically flushes queued events.
