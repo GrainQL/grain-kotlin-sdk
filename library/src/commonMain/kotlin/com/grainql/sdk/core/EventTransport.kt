@@ -35,7 +35,7 @@ internal class EventTransport(private val config: GrainConfig) {
         return try {
             val response: HttpResponse = client.post(url) {
                 contentType(ContentType.Application.Json)
-                config.secret?.let { header("Authorization", "Chase $it") }
+                config.secret?.let { header("Authorization", "Bearer $it") }
                 setBody(events)
             }
 
@@ -74,7 +74,7 @@ internal class EventTransport(private val config: GrainConfig) {
             }
             val response: HttpResponse = client.post(url) {
                 contentType(ContentType.Application.Json)
-                config.secret?.let { header("Authorization", "Chase $it") }
+                config.secret?.let { header("Authorization", "Bearer $it") }
                 setBody(body)
             }
             if (response.status.value != 200) {
